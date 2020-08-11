@@ -46,50 +46,63 @@ class DataLoader:
         self.IMAGE_SIZE = IMAGE_SIZE
         self.BATCH_SIZE = BATCH_SIZE
         self.TFR_FILES = TFR_FILES
-        self.CSV_FILE = self.CSV_FILE
+        self.CSV_FILE = CSV_FILE
+        self.CACHE = CACHE
         self.W_LABELS = W_LABELS
         self.SPLIT = SPLIT
-        self.FRONT = FRONT
+        self.FROM_END = FROM_END
+        
 
         self.load_csv()
         self.create_ds()
 
     def load_csv(self):
         self.csv_df = pd.read_csv(self.CSV_FILE)
-        self.csv_size = self.csv_df.size()
-        self.datasize = int(self.SPLIT * self.csv_size)
+        self.csv_size = self.csv_df.size
+        self.datasize = self.csv_size
     
     def create_ds(self):
         ignore_order = tf.data.Options()
-        ignore_order.experimental_deterministic = False
-
+        if self.W_LABELS:
+            ignore_order.experimental_deterministic = False
+        
         self.dataset = tf.data.TFRecordDataset(self.TFR_FILES, num_parallel_reads = AUTO)
-        if self.FROM_END:
-            self.dataset = self.dataset.skip(int(self.csv_size * (1-self.SPLIT)))
-        self.dataset = self.dataset.take(self.datasize)
-        if self.CACHE():
-            self.dataset = self.dataset.cache()
+        self.dataset = self.dataset.with_options(ignore_order)
         self.dataset = self.dataset.map(parse_example)
+        if self.CACHE:
+            self.dataset = self.dataset.cache()
         self.dataset = self.dataset.map(decode_image(self.W_LABELS, self.IMAGE_SIZE))
-        self.dataset = self.dataset.shuffle(256)
-        if W_LABELS:
-            self.dataset.map(transform)
-
-        self.dataset = self.dataset.batch(self.BATCH_SIZE, self.W_LABELS)
+        
         if self.W_LABELS:
             self.dataset = self.dataset.repeat()
+            self.dataset.map(transform)
+        
+        self.dataset = self.dataset.prefetch(AUTO)
+        self.dataset = self.dataset.shuffle(256)
+        self.dataset = self.dataset.batch(self.BATCH_SIZE, self.W_LABELS)
+        
+    def get_dataset(self):
+        return self.dataset
+    
+    def get_iterations(self):
+        return self.datasize // self.BATCH_SIZE
         
 class TrainDataLoader(DataLoader):
     """
     Also used for validation (by setting VAL=True)
     """
-    def __init__(self, IMAGE_SIZE, BATCH_SIZE, SPLIT, VAL=False, CACHE=True):
-        TFR_FILES = tf.io.gfile.glob(TF_RECORDS_FILES + '/train*.tfrec')
+    def __init__(self, IMAGE_SIZE, BATCH_SIZE, VAL=False, CACHE=True):
+        TFR_FILES = tf.io.gfile.glob(TF_RECORDS_FILES + '/tfrecords/train*.tfrec')
+        if VAL:
+            TFR_FILES = TFR_FILES[-2:]
+        else:
+            TFR_FILES = TFR_FILES[0:-2]
+        print(TFR_FILES)
         super(TrainDataLoader, self).__init__( IMAGE_SIZE, BATCH_SIZE, TFR_FILES, CSV_FILE=TRAIN_CSV,
-                CACHE=CACHE, W_LABELS=True, SPLIT=SPLIT, FROM_END=VAL)
+                CACHE=CACHE, W_LABELS=True)
 
 class TestDataLoader(DataLoader):
-    def __init__(self, IMAGE_SIZE, BATCH_SIZE, VAL=False, CACHE=True):
-        TFR_FILES = tf.io.gfile.glob(TF_RECORDS_FILES + '/test*.tfrec')
+    def __init__(self, IMAGE_SIZE, BATCH_SIZE):
+        TFR_FILES = tf.io.gfile.glob(TF_RECORDS_FILES + '/tfrecords/test*.tfrec')
         super(TrainDataLoader, self).__init__(IMAGE_SIZE, BATCH_SIZE, TFR_FILES, CSV_FILE=TEST_CSV,
-                CACHE=CACHE, W_LABELS=False, SPLIT=1.0, FROM_END=False)
+                CACHE=False, W_LABELS=False, SPLIT=1.0, FROM_END=False)

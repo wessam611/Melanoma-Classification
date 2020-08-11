@@ -3,6 +3,7 @@
 # For example, here's several helpful packages to load
 
 from config import *
+from load_data import *
 
 import os
 import gc
@@ -41,5 +42,24 @@ else:
 print("REPLICAS: ", strategy.num_replicas_in_sync)
 
 
+train_dataset = TrainDataLoader(IMAGE_SIZE, BATCH_SIZE, VAL=False, CACHE=True)
+val_dataset = TrainDataLoader(IMAGE_SIZE, BATCH_SIZE, VAL=True, CACHE=True)
 
-TRAINING_FILENAMES = tf.io.gfile.glob(tf_records_file + '/train*.tfrec')
+with strategy.scope():    
+    pre1 = tf.keras.applications.ResNet101(weights='imagenet', include_top=False ,input_shape=[*IMAGE_SIZE, 3])
+    pre1.trainable=True
+    model1 = tf.keras.Sequential([
+        pre1,
+        tf.keras.layers.GlobalAveragePooling2D(),
+        tf.keras.layers.Dense(512, activation='relu'),
+        tf.keras.layers.Dropout(0.2),
+        tf.keras.layers.Dense(1, 'sigmoid')#, kernel_regularizer='l2')
+    ])
+    model1.compile('adam', loss='binary_crossentropy', metrics=['accuracy'])
+
+model1.fit(train_dataset.get_dataset(), 
+           steps_per_epoch=5,#1811,#train_dataset.get_iterations(), 
+           epochs=EPOCHS,
+          callbacks = [lr_callback],
+          validation_data=val_dataset.get_dataset(),
+          validation_steps=5)#258)
