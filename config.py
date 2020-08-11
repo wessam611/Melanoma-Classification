@@ -10,3 +10,4 @@ BATCH_SIZE = 16 * strategy.num_replicas_in_sync
 TF_RECORDS_FILES = "../input/siim-isic-melanoma-classification/tfrecords"
 TRAIN_CSV = "../input/siim-isic-melanoma-classification/train.csv"
 TEST_CSV = "../input/siim-isic-melanoma-classification/test.csv"
+SUBMISSION_CSV = "submission.csv"
