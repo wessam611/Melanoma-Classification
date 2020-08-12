@@ -13,21 +13,36 @@ import pandas as pd
  
 
 
-feature_description = {
+train_feature_description = {
     "image_name": tf.io.FixedLenFeature([], tf.string),
     "image": tf.io.FixedLenFeature([], tf.string),
     "target": tf.io.FixedLenFeature([], tf.int64)
 }
 
+test_feature_description = {
+    "image_name": tf.io.FixedLenFeature([], tf.string),
+    "image": tf.io.FixedLenFeature([], tf.string)
+}
 
-def parse_example(ex):
-    return tf.io.parse_single_example(ex, feature_description)
+
+def parse_example(W_LABEL):
+    def function(ex):
+        if W_LABEL:
+            feature_description = train_feature_description
+        else:
+            feature_description = test_feature_description
+        return tf.io.parse_single_example(ex, feature_description)
+    return function
 
 def decode_image(W_LABEL, IMAGE_SIZE):
     def function(ex):
         image = ex['image']
         if W_LABEL:
             label = ex['target']
+            feature_description = train_feature_description
+        else:
+            feature_description = test_feature_description
+            image_name = ex['image_name']
         image = tf.image.decode_jpeg(image, channels=3)
         image = tf.cast(image, tf.float32) / 255.0  # convert image to floats in [0, 1] range
         image = tf.image.resize(image, IMAGE_SIZE)
@@ -35,8 +50,25 @@ def decode_image(W_LABEL, IMAGE_SIZE):
         ex['image'] = image
         if W_LABEL:
             return image, label
-        return image
+        return image, image_name
     return function
+
+def increase_pos(images, labels):
+    pos = tf.squeeze(tf.where(tf.equal(labels, 1)), -1)
+    neg = tf.squeeze(tf.where(tf.equal(labels, 0)), -1)
+    if tf.size(pos) == 0:
+        return images, labels
+    if tf.size(neg) == 0:
+        return images, labels
+    neg = tf.tile(neg, [1+int(((BATCH_SIZE)//(2*tf.shape(neg)[0])))], name='neg_tile')
+    neg = neg[0:BATCH_SIZE//2]
+    pos = tf.tile(pos, multiples=[1 + (BATCH_SIZE)//(2*tf.size(pos))], name='pos_tile')
+    pos = pos[0:BATCH_SIZE//2]
+    indices = tf.concat([pos, neg], 0)
+    indices = tf.random.shuffle(indices)
+    imgs = tf.gather(images, indices)
+    lbls = tf.gather(labels, indices)
+    return imgs, lbls
 
 class DataLoader:
 
@@ -68,18 +100,19 @@ class DataLoader:
         
         self.dataset = tf.data.TFRecordDataset(self.TFR_FILES, num_parallel_reads = AUTO)
         self.dataset = self.dataset.with_options(ignore_order)
-        self.dataset = self.dataset.map(parse_example)
+        self.dataset = self.dataset.map(parse_example(self.W_LABELS))
         if self.CACHE:
             self.dataset = self.dataset.cache()
         self.dataset = self.dataset.map(decode_image(self.W_LABELS, self.IMAGE_SIZE))
-        
         if self.W_LABELS:
             self.dataset = self.dataset.repeat()
-            self.dataset.map(transform)
-        
-        self.dataset = self.dataset.prefetch(AUTO)
         self.dataset = self.dataset.shuffle(256)
         self.dataset = self.dataset.batch(self.BATCH_SIZE, self.W_LABELS)
+        if self.W_LABELS:
+            self.dataset = self.dataset.map(increase_pos)
+            self.dataset = self.dataset.map(transform_batch)
+        
+        self.dataset = self.dataset.prefetch(AUTO)
         
     def get_dataset(self):
         return self.dataset
@@ -104,5 +137,5 @@ class TrainDataLoader(DataLoader):
 class TestDataLoader(DataLoader):
     def __init__(self, IMAGE_SIZE, BATCH_SIZE):
         TFR_FILES = tf.io.gfile.glob(TF_RECORDS_FILES + '/tfrecords/test*.tfrec')
-        super(TrainDataLoader, self).__init__(IMAGE_SIZE, BATCH_SIZE, TFR_FILES, CSV_FILE=TEST_CSV,
+        super(TestDataLoader, self).__init__(IMAGE_SIZE, BATCH_SIZE, TFR_FILES, CSV_FILE=TEST_CSV,
                 CACHE=False, W_LABELS=False, SPLIT=1.0, FROM_END=False)

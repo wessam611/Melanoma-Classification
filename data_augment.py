@@ -33,13 +33,13 @@ def get_mat(rotation, shear, height_zoom, width_zoom, height_shift, width_shift)
     
     return K.dot(K.dot(rotation_matrix, shear_matrix), K.dot(zoom_matrix, shift_matrix))
 
-def transform(image,label):
+def transform(image):
     # input image - is one image of size [dim,dim,3] not a batch of [b,dim,dim,3]
     # output - image randomly rotated, sheared, zoomed, and shifted
     DIM = IMAGE_SIZE[0]
     XDIM = DIM%2 #fix for size 331
     
-    rot = 15. * tf.random.normal([1],dtype='float32')
+    rot = 180. * tf.random.normal([1],dtype='float32')
     shr = 5. * tf.random.normal([1],dtype='float32') 
     h_zoom = 1.0 + tf.random.normal([1],dtype='float32')/10.
     w_zoom = 1.0 + tf.random.normal([1],dtype='float32')/10.
@@ -66,4 +66,8 @@ def transform(image,label):
     im = tf.reshape(d,[DIM,DIM,3])
     im = tf.image.random_flip_left_right(im)
 
-    return im, label
+    return im
+
+def transform_batch(images, labels):
+    ret = tf.map_fn(transform, images)
+    return ret, labels

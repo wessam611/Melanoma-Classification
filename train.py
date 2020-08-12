@@ -27,8 +27,6 @@ from sklearn.preprocessing import OneHotEncoder
 import cv2
 
 
-
-
 def train():
     try:
         tpu = tf.distribute.cluster_resolver.TPUClusterResolver()  # TPU detection. No parameters necessary if TPU_NAME environment variable is set. On Kaggle this is always the case.
