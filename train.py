@@ -158,7 +158,7 @@ def train():
     train_dataset = TrainDataLoader(IMAGE_SIZE, BATCH_SIZE//len(models), False, True, TFR_FILES) # with augmentation
     forest.fit(train_dataset.get_dataset(), 
             steps_per_epoch=236*len(models),#train_dataset.get_iterations(), 
-            epochs=2,
+            epochs=5,
             callbacks = [lr_callback]
             )
     return forest
