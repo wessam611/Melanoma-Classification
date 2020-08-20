@@ -31,6 +31,7 @@ def get_mat(rotation, shear, height_zoom, width_zoom, height_shift, width_shift)
     # SHIFT MATRIX
     shift_matrix = tf.reshape( tf.concat([one,zero,height_shift, zero,one,width_shift, zero,zero,one],axis=0),[3,3] )
     
+    
     return K.dot(K.dot(rotation_matrix, shear_matrix), K.dot(zoom_matrix, shift_matrix))
 
 def transform(image):
@@ -40,11 +41,11 @@ def transform(image):
     XDIM = DIM%2 #fix for size 331
     
     rot = 180. * tf.random.normal([1],dtype='float32')
-    shr = 5. * tf.random.normal([1],dtype='float32') 
-    h_zoom = 1.0 + tf.random.normal([1],dtype='float32')/10.
-    w_zoom = 1.0 + tf.random.normal([1],dtype='float32')/10.
-    h_shift = 16. * tf.random.normal([1],dtype='float32') 
-    w_shift = 16. * tf.random.normal([1],dtype='float32') 
+    shr = 2. * tf.random.normal([1],dtype='float32') 
+    h_zoom = 1.0 + tf.random.normal([1],dtype='float32')*0.12
+    w_zoom = 1.0 + tf.random.normal([1],dtype='float32')*0.12
+    h_shift = 8. * tf.random.normal([1],dtype='float32') 
+    w_shift = 8. * tf.random.normal([1],dtype='float32')
   
     # GET TRANSFORMATION MATRIX
     m = get_mat(rot,shr,h_zoom,w_zoom,h_shift,w_shift) 
@@ -65,9 +66,12 @@ def transform(image):
     d = tf.gather_nd(image,tf.transpose(idx3))
     im = tf.reshape(d,[DIM,DIM,3])
     im = tf.image.random_flip_left_right(im)
-
+    im = tf.image.random_flip_up_down(im)
+    im = tf.image.random_brightness(im, 0.2)
+    im = tf.image.random_contrast(im, 0.9, 1.1)
+    im = tf.image.random_hue(im, 0.05)
     return im
 
-def transform_batch(images, labels):
+def transform_batch(images, feats, labels):
     ret = tf.map_fn(transform, images)
-    return ret, labels
+    return ret, feats, labels
