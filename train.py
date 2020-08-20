@@ -146,19 +146,19 @@ def train():
             preds.append(temp_mod({'in_img': in_img, 'in_feats': in_feats}))
         y = tf.keras.layers.Concatenate(axis=1)(preds)
         y = tf.keras.layers.Dense(1, 'sigmoid')(y)
-        forest = Model([in_img, in_feats], y)
+        ensemble = Model([in_img, in_feats], y)
         
         loss = tf.keras.losses.BinaryCrossentropy(label_smoothing=0.01)
-        forest.compile('adam', loss=loss, metrics=[ 
+        ensemble.compile('adam', loss=loss, metrics=[ 
         tf.keras.metrics.BinaryAccuracy(name='accuracy'),
         tf.keras.metrics.Precision(name='precision'),
         tf.keras.metrics.Recall(name='recall'),
             get_f1, 'AUC'
         ])
     train_dataset = TrainDataLoader(IMAGE_SIZE, BATCH_SIZE//len(models), False, True, TFR_FILES) # with augmentation
-    forest.fit(train_dataset.get_dataset(), 
+    ensemble.fit(train_dataset.get_dataset(), 
             steps_per_epoch=236*len(models),#train_dataset.get_iterations(), 
             epochs=5,
             callbacks = [lr_callback]
             )
-    return forest
+    return ensemble

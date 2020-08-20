@@ -10,7 +10,7 @@ Image Classification Competition on Kaggle for detecting Melanoma skin Cancer (m
 
 ## Experiments.
 * I've tried using different models including (ResNets 'overfits', VGG, DenseNets, Inception 'overfits' and EfficientNets 'works best').
-* After using EfficientNets I built a RandomForest model using weighted sums of 5 EfficientNets predictions (weighted sums didn't improve the result much from just using the average prediction).
+* After using EfficientNets I built a Ensemble model using weighted sum of 5 EfficientNets predictions (weighted sums didn't improve the result much from just using the average prediction).
 * I've oversampled positive examples in the dataset in every 2048 records parallel to training (chech older versions of the notebook) making the distribution of the training data (50% pos, 50% neg) which resulted in overfitting (Same picture is used many times even with heavy augmentations).
 * I've settled on using a more balanced [Dataset](https://www.kaggle.com/cdeotte/512x512-melanoma-tfrecords-70k-images) which increased the accuracy and auc of the model while preventing overfitting.
 
